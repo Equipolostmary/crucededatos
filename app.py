@@ -27,18 +27,20 @@ ID_VGIFTS = "1op3cZuu7-Nvpe0m_XGDqw1M4PVzoGk4sxwivnhoj4rQ"
 ID_VENTAS = "1ejOvvW83sOqnx3pIs-uYVF1-LaHxawG4GkyjXM4o-7g"
 
 # --- Carga de datos ---
-promos = cargar_hoja_google(ID_PROMOS, sheet_name=None)
-vgifts = cargar_hoja_google(ID_VGIFTS, sheet_name=None)
-ventas = cargar_hoja_google(ID_VENTAS, sheet_name=None)
+promos = cargar_hoja_google(ID_PROMOS)
+vgifts = cargar_hoja_google(ID_VGIFTS)
+ventas = cargar_hoja_google(ID_VENTAS)
 
 # --- Mostrar en sidebar ---
 st.sidebar.header("📁 Dimensiones de los datos cargados")
 
 def mostrar_shape(nombre, df):
-    if df is not None and not df.empty:
-        st.sidebar.write(f"{nombre}: {df.shape[0]} filas, {df.shape[1]} columnas")
+    if df is None:
+        st.sidebar.warning(f"{nombre}: no se pudo cargar.")
+    elif df.empty:
+        st.sidebar.info(f"{nombre}: vacío.")
     else:
-        st.sidebar.write(f"⚠️ {nombre}: vacío o no cargado")
+        st.sidebar.write(f"{nombre}: {df.shape[0]} filas, {df.shape[1]} columnas")
 
 mostrar_shape("Promos", promos)
 mostrar_shape("VGifts", vgifts)
@@ -59,6 +61,15 @@ def normalizar(df):
     df.columns = df.columns.astype(str).str.strip().str.lower()
     return df
 
-promos = normalizar(puntos)
+promos = normalizar(promos)
 vgifts = normalizar(vgifts)
 ventas = normalizar(ventas)
+
+# --- Vista previa (opcional) ---
+st.subheader("Vista previa de datos")
+if not promos.empty:
+    st.write("**Promos**", promos.head())
+if not vgifts.empty:
+    st.write("**VGifts**", vgifts.head())
+if not ventas.empty:
+    s
