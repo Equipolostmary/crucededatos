@@ -22,12 +22,12 @@ def cargar_hoja_google(sheet_id, sheet_name=None):
         return pd.DataFrame()
 
 # --- IDs de tus hojas de Google Sheets ---
-ID_PUNTOS = "17yBlMXh_ux0g8CB2v3sQSjPRKS6Ia3p8PZuojR0PQgk"
+ID_PROMOS = "17yBlMXh_ux0g8CB2v3sQSjPRKS6Ia3p8PZuojR0PQgk"
 ID_VGIFTS = "1op3cZuu7-Nvpe0m_XGDqw1M4PVzoGk4sxwivnhoj4rQ"
 ID_VENTAS = "1ejOvvW83sOqnx3pIs-uYVF1-LaHxawG4GkyjXM4o-7g"
 
 # --- Carga de datos ---
-puntos = cargar_hoja_google(ID_PUNTOS, sheet_name=None)
+promos = cargar_hoja_google(ID_PROMOS, sheet_name=None)
 vgifts = cargar_hoja_google(ID_VGIFTS, sheet_name=None)
 ventas = cargar_hoja_google(ID_VENTAS, sheet_name=None)
 
@@ -40,13 +40,13 @@ def mostrar_shape(nombre, df):
     else:
         st.sidebar.write(f"⚠️ {nombre}: vacío o no cargado")
 
-mostrar_shape("Puntos", puntos)
+mostrar_shape("Promos", promos)
 mostrar_shape("VGifts", vgifts)
 mostrar_shape("Ventas", ventas)
 
 # --- Comprobaciones de vacíos ---
-if puntos.empty:
-    st.warning("⚠️ La hoja de **Puntos de venta** está vacía o no pudo cargarse.")
+if promos.empty:
+    st.warning("⚠️ La hoja de **Promos** está vacía o no pudo cargarse.")
 if vgifts.empty:
     st.warning("⚠️ La hoja de **VGifts** está vacía o no pudo cargarse.")
 if ventas.empty:
@@ -59,6 +59,6 @@ def normalizar(df):
     df.columns = df.columns.astype(str).str.strip().str.lower()
     return df
 
-puntos = normalizar(puntos)
+promos = normalizar(puntos)
 vgifts = normalizar(vgifts)
-ventas
+ventas = normalizar(ventas)
