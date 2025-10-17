@@ -14,7 +14,6 @@ def cargar_hoja_google(sheet_id, sheet_name=None):
     try:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
         df = pd.read_excel(url, sheet_name=sheet_name, engine="openpyxl")
-        # aseguramos que siempre sea DataFrame
         if not isinstance(df, pd.DataFrame):
             return pd.DataFrame()
         return df
@@ -22,7 +21,7 @@ def cargar_hoja_google(sheet_id, sheet_name=None):
         st.warning(f"⚠️ Error al cargar hoja {sheet_name or ''} del Sheet {sheet_id}: {e}")
         return pd.DataFrame()  # siempre devuelve un DataFrame vacío
 
-# --- IDs de tus hojas de Google Sheets ---
+# --- IDs de Google Sheets ---
 ID_PROMOS = "17yBlMXh_ux0g8CB2v3sQSjPRKS6Ia3p8PZuojR0PQgk"
 ID_VGIFTS = "1op3cZuu7-Nvpe0m_XGDqw1M4PVzoGk4sxwivnhoj4rQ"
 ID_VENTAS = "1ejOvvW83sOqnx3pIs-uYVF1-LaHxawG4GkyjXM4o-7g"
@@ -65,11 +64,44 @@ promos = normalizar(promos)
 vgifts = normalizar(vgifts)
 ventas = normalizar(ventas)
 
-# --- Vista previa opcional ---
-st.subheader("Vista previa de los datos")
-if not promos.empty:
-    st.write("**Promos**", promos.head())
-if not vgifts.empty:
-    st.write("**VGifts**", vgifts.head())
-if not ventas.empty:
-    st.write("**Ventas**", ventas.head())
+# --- Asegurar columna clave 'no_tienda' para contar promociones ---
+def encontrar_columna(df, posibles):
+    for c in posibles:
+        if c in df.columns:
+            return c
+    return None
+
+clave_promos = encontrar_columna(promos, ["no.tienda","no tienda","no_tienda","numero de tienda"])
+clave_ventas = encontrar_columna(ventas, ["no.tienda","no tienda","no_tienda","numero de tienda"])
+clave_vgifts = encontrar_columna(vgifts, ["no.tienda","no tienda","no_tienda","numero de tienda"])
+
+# Renombrar columna clave a 'no_tienda'
+for df, clave in [(promos, clave_promos), (ventas, clave_ventas), (vgifts, clave_vgifts)]:
+    if df is not None and not df.empty and clave:
+        df.rename(columns={clave:"no_tienda"}, inplace=True)
+
+# --- Contador de promociones por tienda ---
+if not promos.empty and "no_tienda" in promos.columns:
+    contador_promos = promos.groupby("no_tienda").size().reset_index(name="promos_subidas")
+else:
+    contador_promos = pd.DataFrame(columns=["no_tienda","promos_subidas"])
+
+# --- Mostrar KPIs ---
+st.markdown("---")
+st.markdown("### 📊 Indicadores rápidos")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    total_tiendas = len(pd.concat([promos["no_tienda"], ventas["no_tienda"]], ignore_index=True).unique()) if not promos.empty and not ventas.empty else 0
+    st.metric("Total puntos de venta", total_tiendas)
+with col2:
+    total_promos = contador_promos["promos_subidas"].sum() if not contador_promos.empty else 0
+    st.metric("Total promos subidas", total_promos)
+with col3:
+    puntos_sin_promos = total_tiendas - len(contador_promos) if not contador_promos.empty else total_tiendas
+    st.metric("Puntos sin promos", puntos_sin_promos)
+
+# --- Vista previa de contador ---
+if not contador_promos.empty:
+    st.subheader("Promos subidas por punto de venta")
+    st.dataframe(contador_promos.sort_values("promos_subidas", ascending=False), use_container_width=True)
