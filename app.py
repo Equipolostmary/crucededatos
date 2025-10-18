@@ -1,58 +1,100 @@
 import streamlit as st
 import pandas as pd
+import requests
+from io import StringIO
 
 # Configuración de la página
-st.set_page_config(page_title="Consulta de Tiendas", page_icon="🛒", layout="wide")
+st.set_page_config(
+    page_title="Sistema de Consulta de Tiendas",
+    page_icon="🛒",
+    layout="wide"
+)
 
-# Título y logo
-st.image("logo.png", width=200)  # Asegúrate de tener el logo en el mismo directorio
-st.title("Sistema de Consulta de Tiendas")
+# Cargar datos desde Google Sheets
+@st.cache_data(ttl=600)
+def load_data():
+    sheet_url = "https://docs.google.com/spreadsheets/d/1gtk75CVDBdJA-hoxmIBsz2P_iVJ4kahadx1Eja2muj0/export?format=csv"
+    try:
+        response = requests.get(sheet_url)
+        response.raise_for_status()
+        data = pd.read_csv(StringIO(response.text))
+        return data
+    except Exception as e:
+        st.error(f"Error cargando datos: {e}")
+        return pd.DataFrame()
+
+# Logo y cabecera
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("https://via.placeholder.com/150x50?text=LOGO", width=150)  # Reemplaza con tu logo
+with col2:
+    st.title("Sistema Corporativo de Consulta de Tiendas")
 
 # Cargar datos
-@st.cache_data
-def load_data():
-    url = "https://docs.google.com/spreadsheets/d/1gtk75CVDBdJA-hoxmIBsz2P_iVJ4kahadx1Eja2muj0/export?format=csv"
-    data = pd.read_csv(url)
-    return data
-
 data = load_data()
 
-# Buscador
-st.sidebar.header("Buscador de Tiendas")
-numero_tienda = st.sidebar.text_input("Número de Tienda (Columna A):")
+# Buscador principal
+st.subheader("Buscador de Tiendas")
+search_term = st.text_input("Ingrese el número de tienda:", placeholder="Ej: 1001")
 
-if numero_tienda:
-    # Buscar la tienda (la columna A se llama 'NOTIENDA' según la imagen)
-    # Asegurémonos de que el tipo de dato sea string para comparar
-    tienda = data[data['NOTIENDA'].astype(str).str.strip().str.upper() == numero_tienda.strip().upper()]
+if search_term:
+    # Buscar coincidencias
+    result = data[data.iloc[:, 0].astype(str).str.contains(search_term, na=False)]
     
-    if not tienda.empty:
-        st.success(f"Tienda {numero_tienda} encontrada.")
-        # Mostrar los datos de la tienda
-        # Transponemos para mostrar cada campo en una fila
-        tienda_data = tienda.iloc[0]
-        st.subheader("Datos de la Tienda")
+    if not result.empty:
+        st.success(f"✅ Se encontró la tienda {search_term}")
         
-        # Crear dos columnas para mostrar los datos
-        col1, col2 = st.columns(2)
+        # Mostrar datos en formato profesional
+        tienda_data = result.iloc[0]
         
-        # Dividir los campos en dos grupos
-        campos = tienda_data.index.tolist()
-        mitad = len(campos) // 2
-        
-        with col1:
-            for campo in campos[:mitad]:
-                st.write(f"**{campo}:** {tienda_data[campo]}")
-        
-        with col2:
-            for campo in campos[mitad:]:
-                st.write(f"**{campo}:** {tienda_data[campo]}")
-    else:
-        st.error("Tienda no encontrada. Verifique el número.")
-else:
-    st.info("Por favor, ingrese un número de tienda en el buscador de la izquierda.")
+        with st.container():
+            st.subheader("Datos Generales de la Tienda")
+            cols = st.columns(4)
+            fields = [
+                ("NOTIENDA", "Número de Tienda"),
+                ("NOMBRE DE TIENDA", "Nombre"),
+                ("TIPO DE TIENDA", "Tipo"),
+                ("EMPLEADO", "Empleado"),
+                ("AREA", "Área"),
+                ("CIUDAD", "Ciudad"),
+                ("DIRECCION", "Dirección"),
+                ("CP", "Código Postal"),
+                ("CORREO", "Correo Electrónico"),
+                ("PUNTOS TOTALES", "Puntos Totales"),
+                ("VENTA", "Venta"),
+                ("PROMOS BM100", "Promociones BM100")
+            ]
+            
+            for idx, (col_name, display_name) in enumerate(fields):
+                cols[idx % 4].metric(
+                    display_name,
+                    tienda_data.get(col_name, "N/A")
+                )
 
-# También podemos mostrar todas las tiendas si el usuario lo desea
-if st.sidebar.checkbox("Mostrar todas las tiendas"):
-    st.subheader("Todas las Tiendas")
-    st.dataframe(data)
+        # Datos mensuales
+        st.subheader("Datos Mensuales")
+        meses_data = {
+            'AGOSTO': ['VENTAS', 'PROMOS 3*13'],
+            'SEPTIEMBRE': ['VENTAS', 'PROMOS 3*13'],
+            'OCTUBRE': ['VENTAS', 'PROMOS 3*2'],
+            'NOVIEMBRE': ['VENTAS', 'PROMOS'],
+            'DICIEMBRE': ['VENTAS', 'PROMOS', 'FOTOS']
+        }
+        
+        for mes, categorias in meses_data.items():
+            with st.expander(f"{mes}"):
+                cols = st.columns(len(categorias))
+                for idx, cat in enumerate(categorias):
+                    cols[idx].metric(
+                        cat,
+                        tienda_data.get(cat, "N/A")
+                    )
+    else:
+        st.error("❌ No se encontró ninguna tienda con ese número")
+
+else:
+    st.info("👆 Ingrese un número de tienda para comenzar la búsqueda")
+
+# Footer corporativo
+st.markdown("---")
+st.markdown("**Sistema Corporativo** • 2025 • Todos los derechos reservados")
