@@ -7,86 +7,177 @@ from io import StringIO
 st.set_page_config(
     page_title="Sistema de Consulta de Tiendas",
     page_icon="🛒",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Cargar datos desde Google Sheets
-@st.cache_resource(ttl=600)
+# CSS personalizado para evitar errores de renderizado
+st.markdown("""
+<style>
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .main .block-container {
+        padding-top: 2rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+@st.cache_data(ttl=3600)
 def load_data():
-    sheet_url = "https://docs.google.com/spreadsheets/d/1gtk75CVDBdJA-hoxmIBsz2P_iVJ4kahadx1Eja2muj0/export?format=csv"
+    """Cargar datos desde Google Sheets con manejo robusto de errores"""
     try:
-        response = requests.get(sheet_url)
+        # URL directa para exportar como CSV
+        sheet_id = "1gtk75CVDBdJA-hoxmIBsz2P_iVJ4kahadx1Eja2muj0"
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
+        
         data = pd.read_csv(StringIO(response.text))
+        
+        # Limpiar nombres de columnas
+        data.columns = data.columns.str.strip()
+        
         return data
     except Exception as e:
-        st.error(f"Error cargando datos: {e}")
+        st.error(f"Error cargando los datos: {str(e)}")
         return pd.DataFrame()
 
-# Logo y cabecera
-col1, col2 = st.columns([1, 4])
-with col1:
-    # Reemplaza con la URL de tu logo
-    st.image("https://via.placeholder.com/150x50?text=LOGO", width=150)
-with col2:
-    st.title("Sistema Corporativo de Consulta de Tiendas")
-
-# Cargar datos
-data = load_data()
-
-# Si no hay datos, mostrar un mensaje y detener la ejecución
-if data.empty:
-    st.error("No se pudieron cargar los datos. Por favor, revisa la conexión.")
-    st.stop()
-
-# Buscador principal
-st.subheader("Buscador de Tiendas")
-search_term = st.text_input("Ingrese el número de tienda:", placeholder="Ej: 1001")
-
-if search_term:
-    # Buscar coincidencias en la primera columna (columna 0)
-    result = data[data.iloc[:, 0].astype(str).str.contains(search_term, na=False)]
+def main():
+    # Header con logo
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🏪 Sistema de Consulta de Tiendas")
+        st.markdown("---")
     
-    if not result.empty:
-        st.success(f"✅ Se encontró la tienda {search_term}")
-        tienda_data = result.iloc[0]
+    # Cargar datos
+    with st.spinner("Cargando base de datos..."):
+        data = load_data()
+    
+    if data.empty:
+        st.error("No se pudieron cargar los datos. Por favor, verifica la conexión.")
+        return
+    
+    # Buscador
+    st.subheader("🔍 Buscar Tienda")
+    search_input = st.text_input(
+        "Ingrese el número de tienda:",
+        placeholder="Ej: 1001, 1002, etc...",
+        key="search_input"
+    )
+    
+    if not search_input:
+        st.info("Por favor, ingrese un número de tienda para buscar")
+        return
+    
+    # Buscar la tienda
+    try:
+        # Buscar en la primera columna (columna A)
+        result = data[data.iloc[:, 0].astype(str).str.strip() == search_input.strip()]
         
-        # Mostrar datos generales en una tabla
-        st.subheader("Datos Generales de la Tienda")
-        # Seleccionar las columnas de datos generales
-        general_columns = [
-            "NOTIENDA", "NOMBRE DE TIENDA", "TIPO DE TIENDA", "EMPLEADO", 
-            "AREA", "CIUDAD", "DIRECCION", "CP", "CORREO", 
-            "PUNTOS TOTALES", "VENTA", "PROMOS BM100"
-        ]
-        # Filtrar las columnas que existen en los datos
-        existing_columns = [col for col in general_columns if col in data.columns]
-        general_df = tienda_data[existing_columns].to_frame().T
-        st.dataframe(general_df, use_container_width=True)
+        if result.empty:
+            st.error(f"❌ No se encontró la tienda con número: {search_input}")
+            return
         
-        # Datos mensuales
-        st.subheader("Datos Mensuales")
-        meses_data = {
-            'AGOSTO': ['VENTAS', 'PROMOS 3*13'],
-            'SEPTIEMBRE': ['VENTAS', 'PROMOS 3*13'],
-            'OCTUBRE': ['VENTAS', 'PROMOS 3*2'],
-            'NOVIEMBRE': ['VENTAS', 'PROMOS'],
-            'DICIEMBRE': ['VENTAS', 'PROMOS', 'FOTOS']
-        }
+        tienda_info = result.iloc[0]
+        st.success(f"✅ Tienda encontrada: {search_input}")
         
-        for mes, categorias in meses_data.items():
-            # Filtrar las categorías que existen en los datos
-            existing_cats = [cat for cat in categorias if cat in data.columns]
-            if existing_cats:
-                st.write(f"**{mes}**")
-                # Crear un dataframe con las categorías existentes
-                mes_df = tienda_data[existing_cats].to_frame().T
-                st.dataframe(mes_df, use_container_width=True)
-    else:
-        st.error("❌ No se encontró ninguna tienda con ese número")
-else:
-    st.info("👆 Ingrese un número de tienda para comenzar la búsqueda")
+        # Mostrar información en pestañas
+        tab1, tab2 = st.tabs(["📊 Información General", "📈 Datos Mensuales"])
+        
+        with tab1:
+            mostrar_informacion_general(tienda_info)
+        
+        with tab2:
+            mostrar_datos_mensuales(tienda_info)
+            
+    except Exception as e:
+        st.error(f"Error al procesar la búsqueda: {str(e)}")
 
-# Footer corporativo
-st.markdown("---")
-st.markdown("**Sistema Corporativo** • 2025 • Todos los derechos reservados")
+def mostrar_informacion_general(tienda_info):
+    """Mostrar información general de la tienda"""
+    st.subheader("Información General")
+    
+    # Definir campos a mostrar
+    campos = [
+        ("NOTIENDA", "Número de Tienda"),
+        ("NOMBRE DE TIENDA", "Nombre de Tienda"), 
+        ("TIPO DE TIENDA", "Tipo de Tienda"),
+        ("EMPLEADO", "Empleado"),
+        ("AREA", "Área"),
+        ("CIUDAD", "Ciudad"),
+        ("DIRECCION", "Dirección"),
+        ("CP", "Código Postal"),
+        ("CORREO", "Correo Electrónico"),
+        ("PUNTOS TOTALES", "Puntos Totales"),
+        ("VENTA", "Ventas"),
+        ("PROMOS BM100", "Promociones BM100")
+    ]
+    
+    # Crear dos columnas para mejor distribución
+    col1, col2 = st.columns(2)
+    
+    for i, (campo_db, campo_display) in enumerate(campos):
+        valor = tienda_info.get(campo_db, "N/A")
+        if pd.isna(valor):
+            valor = "N/A"
+        
+        # Alternar entre columnas
+        if i % 2 == 0:
+            col1.metric(campo_display, valor)
+        else:
+            col2.metric(campo_display, valor)
+
+def mostrar_datos_mensuales(tienda_info):
+    """Mostrar datos mensuales de ventas y promociones"""
+    st.subheader("Datos Mensuales")
+    
+    # Definir estructura de meses y sus campos
+    meses = [
+        {
+            "nombre": "AGOSTO",
+            "campos": ["VENTAS", "PROMOS 3*13"]
+        },
+        {
+            "nombre": "SEPTIEMBRE", 
+            "campos": ["VENTAS", "PROMOS 3*13"]
+        },
+        {
+            "nombre": "OCTUBRE",
+            "campos": ["VENTAS", "PROMOS 3*2"]
+        },
+        {
+            "nombre": "NOVIEMBRE",
+            "campos": ["VENTAS", "PROMOS"]
+        },
+        {
+            "nombre": "DICIEMBRE", 
+            "campos": ["VENTAS", "PROMOS", "FOTOS"]
+        }
+    ]
+    
+    # Mostrar cada mes en un expander
+    for mes in meses:
+        with st.expander(f"📅 {mes['nombre']}"):
+            cols = st.columns(len(mes['campos']))
+            
+            for idx, campo in enumerate(mes['campos']):
+                valor = tienda_info.get(campo, "N/A")
+                if pd.isna(valor):
+                    valor = "N/A"
+                
+                cols[idx].metric(campo, valor)
+
+if __name__ == "__main__":
+    main()
+    
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        "<div style='text-align: center; color: gray;'>"
+        "Sistema Corporativo • 2025 • Todos los derechos reservados"
+        "</div>",
+        unsafe_allow_html=True
+    )
