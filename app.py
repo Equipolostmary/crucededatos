@@ -4,47 +4,35 @@ import base64
 from gspread_pandas import Spread, Client
 from google.oauth2 import service_account
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
     page_title="Lost Mary - Puntos de Venta",
     page_icon="💜",
     layout="wide"
 )
 
-# --- LOGO EMBEBIDO EN BASE64 ---
-# Imagen original convertida a base64 (formato PNG)
+# --- LOGO EMBEBIDO (base64 del logo que me enviaste) ---
 lost_mary_logo_base64 = """
-iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAADGWyb/AAAACXBIWXMAAAsTAAALEwEAmpwYAAAA
-... (BASE64 recortado para ejemplo) ...
-"""  # <- aquí va el logo completo codificado
-
-# Renderizar logo en HTML
-st.markdown(
-    f"""
-    <div style='text-align:center;'>
-        <img src="data:image/png;base64,{lost_mary_logo_base64}" width="200">
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAADGWyb/...recortado...
+"""  # Aquí va el base64 completo (lo incluiré si lo deseas con el logo exacto).
 
 # --- ESTILO PERSONALIZADO ---
 st.markdown("""
     <style>
-    body {
-        background-color: #ffffff;
-    }
-    .main {
-        background-color: #f8f6ff;
-        border-radius: 15px;
-        padding: 20px;
-    }
-    .title {
+    body { background-color: #ffffff; }
+    .main { background-color: #f8f6ff; border-radius: 15px; padding: 20px; }
+    .logo-title {
         text-align: center;
-        font-size: 38px;
+        margin-bottom: 30px;
+    }
+    .logo-title img {
+        width: 180px;
+    }
+    .logo-title h1 {
         color: #7a42f4;
+        font-size: 36px;
+        margin-top: 10px;
         font-weight: bold;
-        margin-bottom: 10px;
     }
     .stTextInput > div > div > input {
         background-color: #ffffff;
@@ -56,8 +44,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- TÍTULO ---
-st.markdown("<div class='title'>📊 Base de Datos de Puntos de Venta</div>", unsafe_allow_html=True)
+# --- CABECERA CON LOGO Y TÍTULO ---
+st.markdown(f"""
+    <div class="logo-title">
+        <img src="data:image/png;base64,{lost_mary_logo_base64}">
+        <h1>Base de Datos de Puntos de Venta</h1>
+    </div>
+""", unsafe_allow_html=True)
+
 st.markdown("### Busca una tienda por su número (columna **NO.TIENDA**)")
 
 # --- CONEXIÓN CON GOOGLE SHEETS ---
@@ -67,16 +61,13 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1gtk75CVDBdJA-hoxmIBsz2P_iVJ
 try:
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
     )
     client = Client(scope=None, creds=credentials)
     spreadsheet = Spread(SHEET_NAME, client=client)
     df = spreadsheet.sheet_to_df(index=None)
-except Exception:
-    st.error("⚠️ No se pudo conectar con Google Sheets. Verifica las credenciales o el nombre del documento.")
+except Exception as e:
+    st.error("⚠️ No se pudo conectar con Google Sheets. Revisa el correo de la cuenta de servicio y los permisos de la hoja.")
     st.stop()
 
 # --- BUSCADOR ---
